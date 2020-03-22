@@ -202,10 +202,12 @@ struct GLNVGfragUniforms {
 		float strokeThr;
 		int texType;
 		int type;
+		float scissorCircleMat[12];
+		float scissorCircleExt;
 	#else
 		// note: after modifying layout or size of uniform array,
 		// don't forget to also update the fragment shader source!
-		#define NANOVG_GL_UNIFORMARRAY_SIZE 11
+		#define NANOVG_GL_UNIFORMARRAY_SIZE 15
 		union {
 			struct {
 				float scissorMat[12]; // matrices are actually 3 vec4s
@@ -221,6 +223,8 @@ struct GLNVGfragUniforms {
 				float strokeThr;
 				float texType;
 				float type;
+                float scissorCircleMat[12];
+                float scissorCircleExt;
 			};
 			float uniformArray[NANOVG_GL_UNIFORMARRAY_SIZE][4];
 		};
@@ -528,7 +532,7 @@ static int glnvg__renderCreate(void* uptr)
 #if NANOVG_GL_USE_UNIFORMBUFFER
 	"#define USE_UNIFORMBUFFER 1\n"
 #else
-	"#define UNIFORMARRAY_SIZE 11\n"
+	"#define UNIFORMARRAY_SIZE 15\n"
 #endif
 	"\n";
 
@@ -576,6 +580,8 @@ static int glnvg__renderCreate(void* uptr)
 		"		float strokeThr;\n"
 		"		int texType;\n"
 		"		int type;\n"
+		"		mat3 scissorCircleMat;\n"
+		"		float scissorCircleExt;\n"
 		"	};\n"
 		"#else\n" // NANOVG_GL3 && !USE_UNIFORMBUFFER
 		"	uniform vec4 frag[UNIFORMARRAY_SIZE];\n"
@@ -604,6 +610,8 @@ static int glnvg__renderCreate(void* uptr)
 		"	#define strokeThr frag[10].y\n"
 		"	#define texType int(frag[10].z)\n"
 		"	#define type int(frag[10].w)\n"
+		"	#define scissorCircleMat mat3(frag[11].xyz, frag[12].xyz, frag[13].xyz)\n"
+		"	#define scissorCircleExt frag[14].x\n"
 		"#endif\n"
 		"\n"
 		"float sdroundrect(vec2 pt, vec2 ext, float rad) {\n"
@@ -616,7 +624,9 @@ static int glnvg__renderCreate(void* uptr)
 		"float scissorMask(vec2 p) {\n"
 		"	vec2 sc = (abs((scissorMat * vec3(p,1.0)).xy) - scissorExt);\n"
 		"	sc = vec2(0.5,0.5) - sc * scissorScale;\n"
-		"	return clamp(sc.x,0.0,1.0) * clamp(sc.y,0.0,1.0);\n"
+		"	float sc_circle = (length((scissorCircleMat * vec3(p,1.0)).xy) - scissorCircleExt);\n"
+		"	sc_circle = 0.5 - sc_circle;\n"
+		"	return clamp(sc.x,0.0,1.0) * clamp(sc.y,0.0,1.0) * clamp(sc_circle,0.0,1.0);\n"
 		"}\n"
 		"#ifdef EDGE_AA\n"
 		"// Stroke - from [0..1] to clipped pyramid, where the slope is 1px.\n"
@@ -930,6 +940,15 @@ static int glnvg__convertPaint(GLNVGcontext* gl, GLNVGfragUniforms* frag, NVGpai
 		frag->scissorExt[1] = scissor->extent[1];
 		frag->scissorScale[0] = sqrtf(scissor->xform[0]*scissor->xform[0] + scissor->xform[2]*scissor->xform[2]) / fringe;
 		frag->scissorScale[1] = sqrtf(scissor->xform[1]*scissor->xform[1] + scissor->xform[3]*scissor->xform[3]) / fringe;
+	}
+
+	if (scissor->circle_extent < -0.5f) {
+		memset(frag->scissorCircleMat, 0, sizeof(frag->scissorCircleMat));
+		frag->scissorCircleExt = 1.0f;
+	} else {
+		nvgTransformInverse(invxform, scissor->circle_xform);
+		glnvg__xformToMat3x4(frag->scissorCircleMat, invxform);
+		frag->scissorCircleExt = scissor->circle_extent;
 	}
 
 	memcpy(frag->extent, paint->extent, sizeof(frag->extent));

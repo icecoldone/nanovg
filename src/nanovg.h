@@ -441,6 +441,14 @@ void nvgIntersectScissor(NVGcontext* ctx, float x, float y, float w, float h);
 // Reset and disables scissoring.
 void nvgResetScissor(NVGcontext* ctx);
 
+// Sets the current scissor circle.
+// The scissor circle is transformed by the current transform.
+// It is applied in addition to the scissor rectangle.
+void nvgScissorCircle(NVGcontext* ctx, float x, float y, float r);
+
+// Reset and disables scissoring circle.
+void nvgResetScissorCircle(NVGcontext* ctx);
+
 //
 // Paths
 //
@@ -635,6 +643,8 @@ enum NVGtexture {
 struct NVGscissor {
 	float xform[6];
 	float extent[2];
+	float circle_xform[6];
+	float circle_extent;
 };
 typedef struct NVGscissor NVGscissor;
 

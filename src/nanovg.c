@@ -656,6 +656,7 @@ void nvgReset(NVGcontext* ctx)
 
 	state->scissor.extent[0] = -1.0f;
 	state->scissor.extent[1] = -1.0f;
+	state->scissor.circle_extent = -1.0f;
 
 	state->fontSize = 16.0f;
 	state->letterSpacing = 0.0f;
@@ -970,6 +971,20 @@ void nvgScissor(NVGcontext* ctx, float x, float y, float w, float h)
 	state->scissor.extent[1] = h*0.5f;
 }
 
+void nvgScissorCircle(NVGcontext* ctx, float x, float y, float r)
+{
+	NVGstate* state = nvg__getState(ctx);
+
+	r = nvg__maxf(0.0f, r);
+
+	nvgTransformIdentity(state->scissor.circle_xform);
+	state->scissor.circle_xform[4] = x;
+	state->scissor.circle_xform[5] = y;
+	nvgTransformMultiply(state->scissor.circle_xform, state->xform);
+
+	state->scissor.circle_extent = r;
+}
+
 static void nvg__isectRects(float* dst,
 							float ax, float ay, float aw, float ah,
 							float bx, float by, float bw, float bh)
@@ -1019,6 +1034,13 @@ void nvgResetScissor(NVGcontext* ctx)
 	memset(state->scissor.xform, 0, sizeof(state->scissor.xform));
 	state->scissor.extent[0] = -1.0f;
 	state->scissor.extent[1] = -1.0f;
+}
+
+void nvgResetScissorCircle(NVGcontext* ctx)
+{
+	NVGstate* state = nvg__getState(ctx);
+	memset(state->scissor.circle_xform, 0, sizeof(state->scissor.circle_xform));
+	state->scissor.circle_extent = -1.0f;
 }
 
 // Global composite operation.
